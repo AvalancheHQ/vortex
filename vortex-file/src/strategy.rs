@@ -79,16 +79,7 @@ impl WriteStrategyBuilder {
             CompressingStrategy::new_btrblocks(buffered, executor.clone(), 16, true)
         };
 
-        // 4. prior to compression, coalesce up to a minimum size
-        let coalescing = RepartitionStrategy::new(
-            compressing,
-            RepartitionWriterOptions {
-                block_size_minimum: ONE_MEG,
-                block_len_multiple: ROW_BLOCK_SIZE,
-            },
-        );
-
-        // 2.1. | 3.1. compress stats tables and dict values.
+        // 3.1. | 4.1. compress stats tables and dict values.
         let compress_then_flat = if let Some(ref compressor) = self.compressor {
             CompressingStrategy::new_opaque(
                 FlatLayoutStrategy::default(),
@@ -105,18 +96,27 @@ impl WriteStrategyBuilder {
             )
         };
 
-        // 3. apply dict encoding or fallback
+        // 4. apply dict encoding or fallback
         let dict = DictStrategy::new(
-            coalescing.clone(),
+            compressing.clone(),
             compress_then_flat.clone(),
-            coalescing,
+            compressing,
             Default::default(),
             executor.clone(),
         );
 
+        // 3. prior to compression, coalesce up to a minimum size
+        let coalescing = RepartitionStrategy::new(
+            dict,
+            RepartitionWriterOptions {
+                block_size_minimum: ONE_MEG,
+                block_len_multiple: ROW_BLOCK_SIZE,
+            },
+        );
+
         // 2. calculate stats for each row group
         let stats = ZonedStrategy::new(
-            dict,
+            coalescing,
             compress_then_flat,
             ZonedLayoutOptions {
                 block_size: ROW_BLOCK_SIZE,
