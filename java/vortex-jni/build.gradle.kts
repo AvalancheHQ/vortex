@@ -12,24 +12,21 @@ plugins {
 }
 
 dependencies {
-    implementation("org.apache.arrow:arrow-c-data")
-    implementation("org.apache.arrow:arrow-memory-core")
-    implementation("org.apache.arrow:arrow-memory-netty")
+    compileOnly(libs.immutables.value)
+    annotationProcessor(libs.immutables.value)
 
-    compileOnly("org.immutables:value")
-    annotationProcessor("org.immutables:value")
+    implementation(libs.arrow.c.data)
+    implementation(libs.arrow.memory.core)
+    implementation(libs.arrow.memory.netty)
 
-    errorprone("com.google.errorprone:error_prone_core")
-    errorprone("com.jakewharton.nopen:nopen-checker")
+    implementation(libs.guava)
+    implementation(libs.protobuf)
+    implementation(libs.slf4j)
 
-    implementation("com.google.guava:guava")
-    implementation("com.google.protobuf:protobuf-java")
-    compileOnly("com.google.errorprone:error_prone_annotations")
-    compileOnly("com.jakewharton.nopen:nopen-annotations")
+    compileOnly(libs.errorprone.annotations)
+    compileOnly(libs.nopen.annotations)
 
-    // Logging
-    implementation("org.slf4j:slf4j-api:2.0.17")
-    testRuntimeOnly("ch.qos.logback:logback-classic:1.5.18")
+    testCompileOnly(libs.logback.classic)
 }
 
 testing {
@@ -37,7 +34,7 @@ testing {
         val test by getting(JvmTestSuite::class) {
             useJUnitJupiter()
             dependencies {
-                implementation("org.junit.jupiter:junit-jupiter-params")
+                implementation(libs.junit.jupiter.params)
             }
         }
     }

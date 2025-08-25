@@ -9,15 +9,15 @@ plugins {
 }
 
 dependencies {
-    api("org.apache.spark:spark-catalyst_2.12")
-    api("org.apache.spark:spark-sql_2.12")
+    api(libs.spark.catalyst)
+    api(libs.spark.sql)
     api(project(":vortex-jni", configuration = "shadow"))
 
-    compileOnly("org.immutables:value")
-    annotationProcessor("org.immutables:value")
+    compileOnly(libs.immutables.value)
+    annotationProcessor(libs.immutables.value)
 
-    implementation("com.google.guava:guava")
-    implementation("org.slf4j:slf4j-api:2.0.17")
+    implementation(libs.guava)
+    implementation(libs.slf4j)
 }
 
 testing {
