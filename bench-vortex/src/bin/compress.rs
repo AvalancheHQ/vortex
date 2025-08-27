@@ -77,14 +77,12 @@ fn compress(
         .collect_vec();
 
     let structlistofints = vec![
-        // StructListOfInts::new(10, 1000, 1),
-        // StructListOfInts::new(100, 1000, 1),
-        // StructListOfInts::new(1000, 1000, 1),
-        // StructListOfInts::new(10, 1000, 50),
-        // StructListOfInts::new(100, 1000, 50),
-        // StructListOfInts::new(1000, 1000, 50),
-        StructListOfInts::new(20_000, 1000, 1),
-        // StructListOfInts::new(10_000, 1000, 50),
+        StructListOfInts::new(10, 1000, 1),
+        StructListOfInts::new(100, 1000, 1),
+        StructListOfInts::new(1000, 1000, 1),
+        StructListOfInts::new(10, 1000, 50),
+        StructListOfInts::new(100, 1000, 50),
+        StructListOfInts::new(1000, 1000, 50),
     ];
     let datasets: Vec<&dyn Dataset> = [
         &TaxiData as &dyn Dataset,
