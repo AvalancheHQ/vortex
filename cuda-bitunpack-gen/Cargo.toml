@@ -1,0 +1,13 @@
+[package]
+name = "cuda-bitunpack-gen"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rand = "0.9.2"
+anyhow = "1.0.100"
+fastlanes = "0.2.2"
+
+[[bin]]
+name = "cuda-bitunpack-gen"
+path = "src/main.rs"
