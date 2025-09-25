@@ -58,48 +58,40 @@ pub(crate) fn new_exporter_with_flatten(
     }
 
     let values_key = Arc::as_ptr(values).addr();
-    let codes = array.codes().to_primitive();
 
-    let exporter_values = if flatten {
-        let canonical = cache
-            .canonical_cache
-            .get(&values_key)
-            .map(|entry| entry.value().1.clone());
-        let canonical = match canonical {
-            Some(c) => c,
-            None => {
-                let canonical = values.to_canonical();
-                cache
-                    .canonical_cache
-                    .insert(values_key, (values.clone(), canonical.clone()));
-                canonical
-            }
-        };
-        return new_array_exporter(&compute::take(canonical.as_ref(), codes.as_ref())?, cache);
-    } else {
-        // Check if we have a cached vector and extract it if we do.
-        let cached_vector = cache
-            .values_cache
-            .get(&values_key)
-            .map(|entry| entry.value().1.clone());
+    // Check if we have a cached vector and extract it if we do.
+    let cached_vector = cache
+        .values_cache
+        .get(&values_key)
+        .map(|entry| entry.value().1.clone());
 
-        match cached_vector {
-            Some(vector) => vector,
-            None => {
-                // Create a new DuckDB vector for the values.
-                let mut vector = Vector::with_capacity(values.dtype().try_into()?, values.len());
-                new_array_exporter(values, cache)?.export(0, values.len(), &mut vector)?;
+    let values_vector = match cached_vector {
+        Some(vector) => vector,
+        None => {
+            // Create a new DuckDB vector for the values.
+            let mut vector = Vector::with_capacity(values.dtype().try_into()?, values.len());
+            new_array_exporter(values, cache)?.export(0, values.len(), &mut vector)?;
 
-                let vector = Arc::new(Mutex::new(vector));
-                cache
-                    .values_cache
-                    .insert(values_key, (values.clone(), vector.clone()));
+            // This is a bit of a hack, but we need to return the values vector into a dictionary
+            // typed vector, where we can later set different selection vectors.
+            // If this is not done here the threads will race to convert the value into a dictionary.
+            Vector::with_capacity(vector.logical_type(), 0).dictionary(
+                &vector,
+                values.len(),
+                &SelectionVector::with_capacity(0),
+                0,
+            );
 
-                vector
-            }
+            let vector = Arc::new(Mutex::new(vector));
+            cache
+                .values_cache
+                .insert(values_key, (values.clone(), vector.clone()));
+
+            vector
         }
     };
 
+    let codes = array.codes().to_primitive();
     match_each_integer_ptype!(codes.ptype(), |I| {
         Ok(Box::new(DictExporter {
             values_vector: exporter_values,
@@ -125,21 +117,15 @@ impl<I: IntegerPType + AsPrimitive<u32>> ColumnExporter for DictExporter<I> {
             *dst = src
         }
 
-        // DuckDB requires the value vector which references the data to be
-        // unique. Otherwise, DuckDB races on the values vector passed to the
-        // dictionary.
-        let new_values_vector = {
-            let values_vector = self.values_vector.lock();
-            let mut new_values_vector = Vector::new(values_vector.logical_type());
-            // Shares the underlying data which determines the vectors length.
-            new_values_vector.reference(&values_vector);
-            new_values_vector
-        };
+        vector.dictionary(
+            &self.values_vector.lock(),
+            self.values_len as usize,
+            &sel_vec,
+            len,
+        );
 
-        vector.dictionary(&new_values_vector, self.values_len as usize, &sel_vec, len);
-
-        // Use a unique id for each dictionary data array -- telling duckdb that
-        // the dict value vector is the same as reuse the hash in a join.
+        // Use a unique id for each dictionary data array -- informing duckdb that the dict value
+        // vector is the same, used for reuse of the hash in a join.
         vector.set_dictionary_id(format!("{}-{}", self.cache_id, self.value_id));
 
         Ok(())

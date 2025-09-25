@@ -31,6 +31,9 @@ fn like_pattern_str(value: &Expression) -> VortexResult<Option<String>> {
 pub fn try_from_bound_expression(value: &Expression) -> VortexResult<Option<ExprRef>> {
     let Some(value) = value.as_class() else {
         vortex_bail!("no expression class id {:?}", value.as_class_id())
+        // Expression class not supported, log and return None to skip
+        /* log::debug!("Unsupported expression class id {:?}", value.as_class_id());
+        return Ok(None); */
     };
     Ok(Some(match value {
         ExpressionClass::BoundColumnRef(col_ref) => col(col_ref
@@ -168,6 +171,10 @@ pub fn try_from_bound_expression(value: &Expression) -> VortexResult<Option<Expr
                 }
                 _ => vortex_bail!("unexpected operator {:?} in bound conjunction", conj.op),
             }
+        }
+        ExpressionClass::BoundCast(cast) => {
+            // TODO(0ax1): Skip CAST expressions in filter pushdown to avoid type mismatches
+            return Ok(None);
         }
     }))
 }
