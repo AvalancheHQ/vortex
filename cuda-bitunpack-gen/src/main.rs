@@ -49,10 +49,10 @@ fn generate_unpack_kernel<T: FastLanes, W: Write>(
             )?;
             writeln!(output, "uint{bits}_t zero = 0ULL;")?;
             writeln!(output)?;
-            // FIXME: option to unroll
-            for lane in 0..lanes {
+            let per_thread_loop_count = lanes / thread_count;
+            for thread_lane in 0..per_thread_loop_count {
                 for row in 0..bits {
-                    writeln!(output, "out[INDEX({row}, {lane})] = zero;")?;
+                    writeln!(output, "out[INDEX({row}, (i * {per_thread_loop_count} + {thread_lane}))] = zero;")?;
                 }
             }
         } else if bit_width == bits {
@@ -65,12 +65,12 @@ fn generate_unpack_kernel<T: FastLanes, W: Write>(
                 "auto in = reinterpret_cast<const uint{bits}_t *>(a_in_p);"
             )?;
             writeln!(output)?;
-            // FIXME: option to unroll
-            for lane in 0..lanes {
+            let per_thread_loop_count = lanes / thread_count;
+            for thread_lane in 0..per_thread_loop_count {
                 for row in 0..bits {
                     writeln!(
                         output,
-                        "out[INDEX({row}, {lane})] = in[{lanes} * {row} + {lane}];",
+                        "out[INDEX({row}, (i * {per_thread_loop_count} + {thread_lane}))] = in[{lanes} * {row} + (i * {per_thread_loop_count} + {thread_lane})];",
                     )?;
                 }
             }
