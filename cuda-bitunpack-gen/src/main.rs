@@ -136,7 +136,7 @@ fn generate_unpack_width_entry_point<T: FastLanes, W: Write>(
 
     writeln!(
         output,
-        "__device__ void unpack_{bits}bit_{thread_count}t(const uint{bits}_t *__restrict a_in_p, uint{bits}_t *__restrict a_out_p, uint{bits}_t bw) {{"
+        "__global__ void unpack_{bits}bit_{thread_count}t(const uint{bits}_t *__restrict a_in_p, uint{bits}_t *__restrict a_out_p, uint{bits}_t bw) {{"
     )?;
     output.indent(|output| {
         writeln!(output, "switch (bw) {{")?;
