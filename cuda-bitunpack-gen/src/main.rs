@@ -89,7 +89,7 @@ fn generate_unpack_kernel<T: FastLanes, W: Write>(
             let per_thread_loop_count = lanes / thread_count;
             for thread_lane in 0..per_thread_loop_count {
                 writeln!(output)?;
-                writeln!(output, "src = in[i * {per_thread_loop_count} + {thread_lane}]")?;
+                writeln!(output, "src = in[i * {per_thread_loop_count} + {thread_lane}];")?;
                 for row in 0..bits {
                     let curr_word = (row * bit_width) / bits;
                     let next_word = ((row + 1) * bit_width) / bits;
@@ -169,7 +169,7 @@ fn generate_unpack_for_width<T: FastLanes, W: Write>(
     writeln!(output, "namespace cuda {{")?;
     writeln!(output)?;
 
-    writeln!(output, "int FL_ORDER[] = {{0, 4, 2, 6, 1, 5, 3, 7}};")?;
+    writeln!(output, "__device__ int FL_ORDER[] = {{0, 4, 2, 6, 1, 5, 3, 7}};")?;
     writeln!(
         output,
         "#define INDEX(row, lane) (FL_ORDER[(row) / 8] * 16 + ((row) % 8) * 128 + (lane))"
