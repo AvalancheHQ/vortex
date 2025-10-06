@@ -689,7 +689,7 @@ mod tests {
     use vortex_dtype::{DecimalDType, FieldNames, NativeDecimalType};
 
     use crate::IntoArray;
-    use crate::arrays::{DecimalArray, ListViewArray, PrimitiveArray, StructArray};
+    use crate::arrays::{DecimalArray, ListViewArray, ListViewShape, PrimitiveArray, StructArray};
     use crate::arrow::IntoArrowArray;
     use crate::arrow::compute::to_arrow;
     use crate::builders::{ArrayBuilder, DecimalBuilder};
@@ -890,6 +890,7 @@ mod tests {
             offsets.into_array(),
             sizes.into_array(),
             Validity::AllValid,
+            ListViewShape::as_zero_copy_to_list(),
         )
         .unwrap();
 
@@ -945,6 +946,7 @@ mod tests {
             offsets.into_array(),
             sizes.into_array(),
             Validity::AllValid,
+            ListViewShape::as_zero_copy_to_list(),
         )
         .unwrap();
 
@@ -979,6 +981,7 @@ mod tests {
             offsets.into_array(),
             sizes.into_array(),
             Validity::AllValid,
+            ListViewShape::as_zero_copy_to_list().with_no_overlaps(false),
         )
         .unwrap();
 
@@ -1032,6 +1035,7 @@ mod tests {
             offsets.into_array(),
             sizes.into_array(),
             validity,
+            ListViewShape::as_zero_copy_to_list(),
         )
         .unwrap();
 

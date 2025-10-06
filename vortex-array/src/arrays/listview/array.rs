@@ -5,9 +5,9 @@ use std::sync::Arc;
 
 use num_traits::AsPrimitive;
 use vortex_dtype::{DType, IntegerPType, match_each_integer_ptype};
-use vortex_error::{VortexExpect, VortexResult, vortex_ensure, vortex_err};
+use vortex_error::{VortexExpect, VortexResult, vortex_bail, vortex_ensure, vortex_err};
 
-use crate::arrays::PrimitiveVTable;
+use crate::arrays::{ListViewShape, PrimitiveArray, PrimitiveVTable};
 use crate::stats::ArrayStats;
 use crate::validity::Validity;
 use crate::{Array, ArrayRef, ToCanonical};
@@ -37,7 +37,7 @@ use crate::{Array, ArrayRef, ToCanonical};
 /// # Examples
 ///
 /// ```
-/// # use vortex_array::arrays::{ListViewArray, PrimitiveArray};
+/// # use vortex_array::arrays::{ListViewArray, ListViewShape, PrimitiveArray};
 /// # use vortex_array::validity::Validity;
 /// # use vortex_array::IntoArray;
 /// # use vortex_buffer::buffer;
@@ -55,6 +55,9 @@ use crate::{Array, ArrayRef, ToCanonical};
 ///     offsets.into_array(),
 ///     sizes.into_array(),
 ///     Validity::NonNullable,
+///     ListViewShape::as_zero_copy_to_list()
+///         .with_sorted_offsets(false)
+///         .with_no_overlaps(false),
 /// ).unwrap();
 ///
 /// assert_eq!(list_view.len(), 3);
@@ -94,6 +97,13 @@ pub struct ListViewArray {
     /// we want to access.
     sizes: ArrayRef,
 
+    /// The "shape" of the `ListViewArray` data.
+    ///
+    /// We use this information to help us more efficiently rebuild / compact our data.
+    ///
+    /// See the documentation for [`ListViewShape`] for more information.
+    shape: ListViewShape,
+
     /// The validity / null map of the array.
     ///
     /// Note that this null map refers to which list scalars are null, **not** which sub-elements of
@@ -111,8 +121,14 @@ impl ListViewArray {
     ///
     /// Panics if the provided components do not satisfy the invariants documented
     /// in [`ListViewArray::new_unchecked`].
-    pub fn new(elements: ArrayRef, offsets: ArrayRef, sizes: ArrayRef, validity: Validity) -> Self {
-        Self::try_new(elements, offsets, sizes, validity)
+    pub fn new(
+        elements: ArrayRef,
+        offsets: ArrayRef,
+        sizes: ArrayRef,
+        validity: Validity,
+        shape: ListViewShape,
+    ) -> Self {
+        Self::try_new(elements, offsets, sizes, validity, shape)
             .vortex_expect("ListViewArray construction failed")
     }
 
@@ -127,11 +143,12 @@ impl ListViewArray {
         offsets: ArrayRef,
         sizes: ArrayRef,
         validity: Validity,
+        shape: ListViewShape,
     ) -> VortexResult<Self> {
-        Self::validate(&elements, &offsets, &sizes, &validity)?;
+        Self::validate(&elements, &offsets, &sizes, &validity, shape)?;
 
         // SAFETY: validate ensures all invariants are met.
-        Ok(unsafe { Self::new_unchecked(elements, offsets, sizes, validity) })
+        Ok(unsafe { Self::new_unchecked(elements, offsets, sizes, validity, shape) })
     }
 
     /// Creates a new [`ListViewArray`] without validation.
@@ -143,16 +160,19 @@ impl ListViewArray {
     /// - `offsets` and `sizes` must be non-nullable integer arrays.
     /// - `offsets` and `sizes` must have the same length.
     /// - Size integer width must be smaller than or equal to offset type (to prevent overflow).
-    /// - For each `i`, `offsets[i] + sizes[i]` must not overflow and must be `<= elements.len()`.
+    /// - For each `i`, `offsets[i] + sizes[i]` must not overflow and must be `<= elements.len()`
+    ///   (even if the corresponding view is defined as null by the validity array).
     /// - If validity is an array, its length must equal `offsets.len()`.
+    /// - The `shape` that is passed in correctly describes the shape of the `ListViewArray` data.
     pub unsafe fn new_unchecked(
         elements: ArrayRef,
         offsets: ArrayRef,
         sizes: ArrayRef,
         validity: Validity,
+        shape: ListViewShape,
     ) -> Self {
         #[cfg(debug_assertions)]
-        Self::validate(&elements, &offsets, &sizes, &validity)
+        Self::validate(&elements, &offsets, &sizes, &validity, shape)
             .vortex_expect("[Debug Assertion]: Invalid `ListViewArray` parameters");
 
         Self {
@@ -161,6 +181,7 @@ impl ListViewArray {
             offsets,
             sizes,
             validity,
+            shape,
             stats_set: Default::default(),
         }
     }
@@ -171,6 +192,7 @@ impl ListViewArray {
         offsets: &dyn Array,
         sizes: &dyn Array,
         validity: &Validity,
+        shape: ListViewShape,
     ) -> VortexResult<()> {
         // Check that offsets and sizes are integer arrays and non-nullable.
         vortex_ensure!(
@@ -207,6 +229,15 @@ impl ListViewArray {
             offset_max
         );
 
+        // If a validity array is present, it must be the same length as the `ListViewArray`.
+        if let Some(validity_len) = validity.maybe_len() {
+            vortex_ensure!(
+                validity_len == offsets.len(),
+                "validity with size {validity_len} does not match array size {}",
+                offsets.len()
+            );
+        }
+
         let offsets_primitive = offsets.to_primitive();
         let sizes_primitive = sizes.to_primitive();
 
@@ -224,14 +255,8 @@ impl ListViewArray {
             })
         });
 
-        // If a validity array is present, it must be the same length as the ListView.
-        if let Some(validity_len) = validity.maybe_len() {
-            vortex_ensure!(
-                validity_len == offsets.len(),
-                "validity with size {validity_len} does not match array size {}",
-                offsets.len()
-            );
-        }
+        // Validate the `ListViewShape`.
+        validate_shape(shape, elements, offsets_primitive, sizes_primitive)?;
 
         Ok(())
     }
@@ -310,6 +335,13 @@ impl ListViewArray {
     pub fn elements(&self) -> &ArrayRef {
         &self.elements
     }
+
+    /// Returns the shape of the `ListViewArray`.
+    ///
+    /// See the documentation of [`ListViewShape`] for more information.
+    pub fn shape(&self) -> ListViewShape {
+        self.shape
+    }
 }
 
 /// Helper function to validate `offsets` and `sizes` with specific types.
@@ -349,6 +381,80 @@ where
             end <= elements_len,
             "offset[{i}] + size[{i}] = {end} exceeds elements length {elements_len}",
         );
+    }
+
+    Ok(())
+}
+
+/// Helper function to validate if the [`ListViewShape`] correctly describes the data.
+fn validate_shape(
+    shape: ListViewShape,
+    elements: &dyn Array,
+    offsets_primitive: PrimitiveArray,
+    sizes_primitive: PrimitiveArray,
+) -> VortexResult<()> {
+    if shape.has_sorted_offsets() {
+        // Offsets must be sorted (but not strictly sorted, zero-length lists are allowed), even
+        // if there are null views.
+        if let Some(is_sorted) = offsets_primitive.statistics().compute_is_sorted() {
+            vortex_ensure!(is_sorted, "offsets must be sorted");
+        } else {
+            vortex_bail!("offsets must report is_sorted statistic");
+        }
+    }
+
+    if !(shape.has_no_gaps() || shape.has_no_overlaps()) {
+        return Ok(());
+    }
+
+    let mut element_references = vec![0u8; elements.len()];
+
+    fn count_references<O: IntegerPType, S: IntegerPType>(
+        element_references: &mut [u8],
+        offsets_primitive: PrimitiveArray,
+        sizes_primitive: PrimitiveArray,
+    ) {
+        let offsets_slice = offsets_primitive.as_slice::<O>();
+        let sizes_slice = sizes_primitive.as_slice::<S>();
+
+        // Note that we ignore nulls here, as the "null" view metadata must still maintain the same
+        // invariants as non-null views, even for a `ListViewShape` information.
+        for i in 0..offsets_slice.len() {
+            let offset: usize = offsets_slice[i].as_();
+            let size: usize = sizes_slice[i].as_();
+            for j in offset..offset + size {
+                element_references[j] = element_references[j].saturating_add(1);
+            }
+        }
+    }
+
+    match_each_integer_ptype!(offsets_primitive.ptype(), |O| {
+        match_each_integer_ptype!(sizes_primitive.ptype(), |S| {
+            count_references::<O, S>(&mut element_references, offsets_primitive, sizes_primitive);
+        })
+    });
+
+    if shape.has_no_gaps() {
+        // Allow leading and trailing unreferenced elements, but not gaps in the middle.
+        let leftmost_used = element_references
+            .iter()
+            .position(|&references| references != 0);
+        let rightmost_used = element_references
+            .iter()
+            .rposition(|&references| references != 0);
+
+        if let (Some(first_ref), Some(last_ref)) = (leftmost_used, rightmost_used) {
+            vortex_ensure!(
+                element_references[first_ref..=last_ref]
+                    .iter()
+                    .all(|&references| references != 0),
+                "found gap in elements array between first and last referenced elements"
+            );
+        }
+    }
+
+    if shape.has_no_overlaps() {
+        vortex_ensure!(element_references.iter().all(|&references| references <= 1))
     }
 
     Ok(())

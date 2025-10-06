@@ -4,6 +4,7 @@
 use vortex_buffer::buffer;
 use vortex_dtype::{DType, FieldNames, Nullability, PType, StructFields};
 
+use crate::arrays::listview::ListViewShape;
 use crate::arrays::{ListViewArray, ListViewVTable, PrimitiveArray, StructArray};
 use crate::validity::Validity;
 use crate::{Array, IntoArray};
@@ -29,9 +30,16 @@ fn test_listview_of_listview_with_overlapping() {
     let inner_offsets = buffer![0u32, 2, 1, 5, 0, 6].into_array();
     let inner_sizes = buffer![3u32, 3, 3, 3, 2, 2].into_array();
 
-    let inner_listview =
-        ListViewArray::try_new(elements, inner_offsets, inner_sizes, Validity::NonNullable)
-            .unwrap();
+    let inner_listview = ListViewArray::try_new(
+        elements,
+        inner_offsets,
+        inner_sizes,
+        Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list()
+            .with_sorted_offsets(false)
+            .with_no_overlaps(false),
+    )
+    .unwrap();
 
     // Create outer ListView that groups the inner lists:
     // Logical outer lists: [inner[0..3], inner[3..6]]
@@ -45,6 +53,7 @@ fn test_listview_of_listview_with_overlapping() {
         outer_offsets,
         outer_sizes,
         Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list(),
     )
     .unwrap();
 
@@ -91,8 +100,14 @@ fn test_deeply_nested_out_of_order() {
     let l1_offsets = buffer![8u32, 0, 4, 12, 2, 10, 6, 14].into_array();
     let l1_sizes = buffer![2u32, 2, 2, 2, 2, 2, 2, 2].into_array();
 
-    let level1 =
-        ListViewArray::try_new(elements, l1_offsets, l1_sizes, Validity::NonNullable).unwrap();
+    let level1 = ListViewArray::try_new(
+        elements,
+        l1_offsets,
+        l1_sizes,
+        Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list().with_sorted_offsets(false),
+    )
+    .unwrap();
 
     // Level 2: Group level1 lists, also out-of-order.
     // 4 lists of 2 inner lists each.
@@ -105,6 +120,7 @@ fn test_deeply_nested_out_of_order() {
         l2_offsets,
         l2_sizes,
         Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list().with_sorted_offsets(false),
     )
     .unwrap();
 
@@ -119,6 +135,7 @@ fn test_deeply_nested_out_of_order() {
         l3_offsets,
         l3_sizes,
         Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list().with_sorted_offsets(false),
     )
     .unwrap();
 
@@ -167,6 +184,9 @@ fn test_mixed_offset_size_types() {
         inner_offsets.clone(),
         inner_sizes.clone(),
         Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list()
+            .with_no_overlaps(false)
+            .with_no_gaps(false),
     )
     .unwrap();
 
@@ -181,6 +201,7 @@ fn test_mixed_offset_size_types() {
         outer_offsets,
         outer_sizes,
         Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list().with_no_gaps(false),
     )
     .unwrap();
 
@@ -222,9 +243,16 @@ fn test_listview_zero_and_overlapping() {
     let inner_offsets = buffer![0u32, 0, 3, 1, 4, 0, 0, 2].into_array();
     let inner_sizes = buffer![0u32, 3, 0, 3, 1, 0, 5, 0].into_array();
 
-    let inner_listview =
-        ListViewArray::try_new(elements, inner_offsets, inner_sizes, Validity::NonNullable)
-            .unwrap();
+    let inner_listview = ListViewArray::try_new(
+        elements,
+        inner_offsets,
+        inner_sizes,
+        Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list()
+            .with_sorted_offsets(false)
+            .with_no_overlaps(false),
+    )
+    .unwrap();
 
     // Create outer lists that group these:
     // Logical lists: [inner[0..3], inner[3..6], inner[6..8]]
@@ -239,6 +267,7 @@ fn test_listview_zero_and_overlapping() {
         outer_offsets,
         outer_sizes,
         Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list().with_no_gaps(false),
     )
     .unwrap();
 
@@ -322,6 +351,7 @@ fn test_listview_of_struct_with_nulls() {
         offsets,
         sizes,
         Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list().with_no_overlaps(false),
     )
     .unwrap();
 

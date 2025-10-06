@@ -9,6 +9,7 @@ use super::common::{
     create_basic_listview, create_empty_lists_listview, create_large_listview,
     create_nullable_listview, create_overlapping_listview,
 };
+use crate::arrays::listview::ListViewShape;
 use crate::arrays::{ConstantArray, ListViewArray, PrimitiveArray};
 use crate::compute::conformance::filter::test_filter_conformance;
 use crate::compute::filter;
@@ -31,16 +32,23 @@ fn test_filter_listview_conformance(#[case] listview: ListViewArray) {
 fn test_filter_preserves_unreferenced_elements() {
     // ListView-specific: Test that filter preserves the entire elements array.
     //
-    //
     // Logical list: [[5,6,7], [2,3], [8,9], [0,1], [1,2,3,4]]
     // Elements: [0,1,2,3,4,5,6,7,8,9]
     let elements = buffer![0i32, 1, 2, 3, 4, 5, 6, 7, 8, 9].into_array();
     let offsets = buffer![5u32, 2, 8, 0, 1].into_array();
     let sizes = buffer![3u32, 2, 2, 2, 4].into_array();
 
-    let listview = ListViewArray::try_new(elements.clone(), offsets, sizes, Validity::NonNullable)
-        .unwrap()
-        .to_array();
+    let listview = ListViewArray::try_new(
+        elements.clone(),
+        offsets,
+        sizes,
+        Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list()
+            .with_sorted_offsets(false)
+            .with_no_overlaps(false),
+    )
+    .unwrap()
+    .to_array();
 
     // Filter to keep only 2 lists.
     let mask = Mask::from_iter([true, false, false, true, false]);
@@ -73,9 +81,18 @@ fn test_filter_with_gaps() {
     let offsets = buffer![0u32, 6, 10, 1, 7].into_array();
     let sizes = buffer![3u32, 3, 2, 2, 2].into_array();
 
-    let listview = ListViewArray::try_new(elements.clone(), offsets, sizes, Validity::NonNullable)
-        .unwrap()
-        .to_array();
+    let listview = ListViewArray::try_new(
+        elements.clone(),
+        offsets,
+        sizes,
+        Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list()
+            .with_sorted_offsets(false)
+            .with_no_overlaps(false)
+            .with_no_gaps(false),
+    )
+    .unwrap()
+    .to_array();
 
     // Filter to keep lists with gaps and overlaps.
     let mask = Mask::from_iter([false, true, true, true, false]);
@@ -119,6 +136,7 @@ fn test_filter_constant_arrays() {
         constant_offsets,
         varying_sizes,
         Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list().with_no_overlaps(false),
     )
     .unwrap()
     .to_array();
@@ -143,6 +161,7 @@ fn test_filter_constant_arrays() {
         both_constant_offsets,
         both_constant_sizes,
         Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list().with_no_overlaps(false),
     )
     .unwrap()
     .to_array();
@@ -169,9 +188,17 @@ fn test_filter_extreme_offsets() {
     let offsets = buffer![0u32, 4999, 9995, 2500, 7500].into_array();
     let sizes = buffer![5u32, 2, 5, 3, 4].into_array();
 
-    let listview = ListViewArray::try_new(elements.clone(), offsets, sizes, Validity::NonNullable)
-        .unwrap()
-        .to_array();
+    let listview = ListViewArray::try_new(
+        elements.clone(),
+        offsets,
+        sizes,
+        Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list()
+            .with_sorted_offsets(false)
+            .with_no_gaps(false),
+    )
+    .unwrap()
+    .to_array();
 
     // Filter to keep only 2 lists, demonstrating we keep all 10000 elements.
     let mask = Mask::from_iter([false, true, false, false, true]);

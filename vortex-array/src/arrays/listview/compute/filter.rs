@@ -46,17 +46,25 @@ impl FilterKernel for ListViewVTable {
         );
 
         // Simply filter the offsets and sizes arrays.
-        // Filters keep scalars in order, and it cannot cause overlaps to form. However, filters
-        // **will** create gaps of unused elements.
         let new_offsets = compute::filter(offsets.as_ref(), selection_mask)?;
         let new_sizes = compute::filter(sizes.as_ref(), selection_mask)?;
+
+        // Filters keep scalars in order, and it cannot cause overlaps to form. However, filters
+        // **will** create gaps of unused elements.
+        let new_shape = array.shape().with_no_gaps(false);
 
         // SAFETY: Filter operation maintains all `ListViewArray` invariants:
         // - Offsets and sizes are derived from existing valid child arrays.
         // - Offsets and sizes have the same length (both filtered by `selection_mask`).
         // - Validity matches the filtered array's nullability.
         let new_array = unsafe {
-            ListViewArray::new_unchecked(elements.clone(), new_offsets, new_sizes, new_validity)
+            ListViewArray::new_unchecked(
+                elements.clone(),
+                new_offsets,
+                new_sizes,
+                new_validity,
+                new_shape,
+            )
         };
 
         // TODO(connor)[ListView]: Ideally, we would only rebuild after all `take`s and `filter`

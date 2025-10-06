@@ -9,6 +9,7 @@ use vortex_dtype::{DType, Nullability, PType};
 use vortex_scalar::Scalar;
 
 use crate::IntoArray;
+use crate::arrays::listview::ListViewShape;
 use crate::arrays::{BoolArray, ListViewArray, PrimitiveArray};
 use crate::validity::Validity;
 
@@ -21,7 +22,14 @@ fn test_nullable_listview_comprehensive() {
     let sizes = buffer![2i32, 2, 2].into_array();
     let validity = Validity::from_iter([true, false, true]);
 
-    let listview = ListViewArray::try_new(elements, offsets, sizes, validity).unwrap();
+    let listview = ListViewArray::try_new(
+        elements,
+        offsets,
+        sizes,
+        validity,
+        ListViewShape::as_zero_copy_to_list(),
+    )
+    .unwrap();
 
     assert_eq!(listview.len(), 3);
 
@@ -80,7 +88,14 @@ fn test_nullable_patterns(#[case] validity: Validity, #[case] expected_validity:
     let offsets = buffer![0i32, 2, 4].into_array();
     let sizes = buffer![2i32, 2, 2].into_array();
 
-    let listview = ListViewArray::try_new(elements, offsets, sizes, validity).unwrap();
+    let listview = ListViewArray::try_new(
+        elements,
+        offsets,
+        sizes,
+        validity,
+        ListViewShape::default(), // Don't bother checking this in this test.
+    )
+    .unwrap();
 
     for (i, &expected) in expected_validity.iter().enumerate() {
         assert_eq!(listview.is_valid(i), expected);
@@ -97,7 +112,14 @@ fn test_nullable_elements() {
     let offsets = buffer![0i32, 2, 4].into_array();
     let sizes = buffer![2i32, 2, 2].into_array();
 
-    let listview = ListViewArray::try_new(elements, offsets, sizes, Validity::AllValid).unwrap();
+    let listview = ListViewArray::try_new(
+        elements,
+        offsets,
+        sizes,
+        Validity::AllValid,
+        ListViewShape::as_zero_copy_to_list(),
+    )
+    .unwrap();
 
     // First list: [Some(1), None].
     let first_list = listview.list_elements_at(0);
@@ -135,7 +157,13 @@ fn test_validity_length_mismatch() {
     // Wrong length validity.
     let validity = Validity::Array(BoolArray::from_iter(vec![true, false, true]).into_array());
 
-    let result = ListViewArray::try_new(elements, offsets, sizes, validity);
+    let result = ListViewArray::try_new(
+        elements,
+        offsets,
+        sizes,
+        validity,
+        ListViewShape::as_zero_copy_to_list(),
+    );
 
     assert!(result.is_err());
     let err = result.unwrap_err();

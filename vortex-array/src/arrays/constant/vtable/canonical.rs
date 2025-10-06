@@ -16,7 +16,7 @@ use crate::arrays::constant::ConstantArray;
 use crate::arrays::primitive::PrimitiveArray;
 use crate::arrays::{
     BoolArray, ConstantVTable, DecimalArray, ExtensionArray, FixedSizeListArray, ListViewArray,
-    NullArray, StructArray, VarBinViewArray, smallest_decimal_value_type,
+    ListViewShape, NullArray, StructArray, VarBinViewArray, smallest_decimal_value_type,
 };
 use crate::builders::builder_with_capacity;
 use crate::validity::Validity;
@@ -253,10 +253,14 @@ fn constant_canonical_list_array(scalar: &Scalar, len: usize) -> ListViewArray {
     debug_assert!(!offsets.dtype().is_nullable());
     debug_assert!(!sizes.dtype().is_nullable());
 
+    // Since everything is pointing to the same exact thing, the offsets are sorted and there are no
+    // gaps in the shape.
+    let shape = ListViewShape::as_zero_copy_to_list().with_no_overlaps(false);
+
     // SAFETY: All views point to the same range [0, list.len()) in the elements array.
     // The elements array contains `len` copies of the same value, offsets are all 0,
     // and sizes are all equal to the list length. The validity matches the scalar's nullability.
-    unsafe { ListViewArray::new_unchecked(elements, offsets, sizes, validity) }
+    unsafe { ListViewArray::new_unchecked(elements, offsets, sizes, validity, shape) }
 }
 
 fn constant_canonical_fixed_size_list_array(

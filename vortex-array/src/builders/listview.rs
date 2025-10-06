@@ -16,7 +16,7 @@ use vortex_mask::Mask;
 use vortex_scalar::{ListScalar, Scalar};
 
 use crate::array::{Array, ArrayRef, IntoArray};
-use crate::arrays::ListViewArray;
+use crate::arrays::{ListViewArray, ListViewShape};
 use crate::builders::lazy_null_builder::LazyBitBufferBuilder;
 use crate::builders::{
     ArrayBuilder, DEFAULT_BUILDER_CAPACITY, PrimitiveBuilder, builder_with_capacity,
@@ -149,7 +149,11 @@ impl<O: IntegerPType, S: IntegerPType> ListViewBuilder<O, S> {
         let sizes = self.sizes_builder.finish();
         let validity = self.nulls.finish_with_nullability(self.dtype.nullability());
 
-        ListViewArray::try_new(elements, offsets, sizes, validity)
+        // Because we built the `ListViewArray` up list by list, and we did not create any overlaps
+        // or gaps, we can guarantee that this is zero-copyable to `ListArray`.
+        let shape = ListViewShape::as_zero_copy_to_list();
+
+        ListViewArray::try_new(elements, offsets, sizes, validity, shape)
             .vortex_expect("Failed to create ListViewArray")
     }
 
@@ -237,6 +241,9 @@ impl<O: IntegerPType, S: IntegerPType> ArrayBuilder for ListViewBuilder<O, S> {
             return;
         }
 
+        // TODO NOW: Rebuild the array we are extending by to be zero-copy to list and then be
+        // smarter about this.
+        
         // TODO(connor)[ListView]: We could potentially concatenate the new elements on top of the
         // existing elements and recalculate offsets (and then use `UninitRange`). However, that
         // would mean we lose the guarantee that the output `ListViewArray` does not look like a

@@ -8,6 +8,7 @@ use vortex_buffer::buffer;
 use vortex_dtype::{DType, Nullability, PType};
 use vortex_scalar::Scalar;
 
+use crate::arrays::listview::ListViewShape;
 use crate::arrays::{
     BoolArray, ConstantArray, ListArray, ListViewArray, PrimitiveArray, list_view_from_list,
 };
@@ -17,11 +18,18 @@ use crate::{Array, IntoArray};
 #[test]
 fn test_basic_listview_comprehensive() {
     // Comprehensive test for basic ListView functionality including scalar_at.
+    // Logical lists: [[1,2,3], [4,5], [6,7,8,9]]
     let elements = buffer![1i32, 2, 3, 4, 5, 6, 7, 8, 9].into_array();
     let offsets = buffer![0i32, 3, 5].into_array();
     let sizes = buffer![3i32, 2, 4].into_array();
 
-    let listview = ListViewArray::new(elements.into_array(), offsets, sizes, Validity::NonNullable);
+    let listview = ListViewArray::new(
+        elements.into_array(),
+        offsets,
+        sizes,
+        Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list(),
+    );
 
     assert_eq!(listview.len(), 3);
     assert!(!listview.is_empty());
@@ -67,11 +75,18 @@ fn test_basic_listview_comprehensive() {
 #[test]
 fn test_out_of_order_offsets() {
     // ListView-specific: Tests that offsets can be non-sequential and out-of-order.
+    // Logical lists: [[7,8,9], [1,2,3], [4,5,6]]
     let elements = buffer![1i32, 2, 3, 4, 5, 6, 7, 8, 9].into_array();
-    let offsets = buffer![6i32, 0, 3].into_array(); // Out-of-order: [7,8,9], [1,2,3], [4,5,6].
+    let offsets = buffer![6i32, 0, 3].into_array(); // Out-of-order offsets.
     let sizes = buffer![3i32, 3, 3].into_array();
 
-    let listview = ListViewArray::new(elements.into_array(), offsets, sizes, Validity::NonNullable);
+    let listview = ListViewArray::new(
+        elements.into_array(),
+        offsets,
+        sizes,
+        Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list().with_sorted_offsets(false),
+    );
 
     assert_eq!(listview.len(), 3);
 
@@ -91,13 +106,19 @@ fn test_out_of_order_offsets() {
 #[test]
 fn test_empty_listview() {
     // Test empty ListView array (0 lists).
+    // Logical lists: [] (empty ListView)
     let elements = buffer![1i32].into_array(); // Dummy element.
     let offsets = buffer![0i32; 0].into_array();
     let sizes = buffer![0i32; 0].into_array();
 
-    let listview =
-        ListViewArray::try_new(elements.into_array(), offsets, sizes, Validity::NonNullable)
-            .unwrap();
+    let listview = ListViewArray::try_new(
+        elements.into_array(),
+        offsets,
+        sizes,
+        Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list(),
+    )
+    .unwrap();
 
     assert_eq!(listview.len(), 0);
     assert!(listview.is_empty());
@@ -106,6 +127,7 @@ fn test_empty_listview() {
 #[test]
 fn test_from_list_array() {
     // Test conversion from ListArray to ListViewArray.
+    // Logical lists: [[1,2], null, [5,6,7]]
     let offsets = buffer![0i64, 2, 4, 7].into_array();
     let elements = buffer![1i32, 2, 3, 4, 5, 6, 7].into_array();
     let validity = Validity::from_iter([true, false, true]);
@@ -156,7 +178,20 @@ fn test_listview_with_constant_arrays(#[case] const_sizes: bool, #[case] const_o
         buffer![3i32, 2, 1].into_array()
     };
 
-    let listview = ListViewArray::new(elements.into_array(), offsets, sizes, Validity::NonNullable);
+    // Determine shape flags based on test case.
+    let has_overlaps = if const_offsets {
+        false // All lists start at same offset, so they overlap
+    } else {
+        true // Different offsets with no overlap
+    };
+
+    let listview = ListViewArray::new(
+        elements.into_array(),
+        offsets,
+        sizes,
+        Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list().with_no_overlaps(has_overlaps),
+    );
     assert_eq!(listview.len(), 3);
 
     if const_sizes && const_offsets {
@@ -209,6 +244,7 @@ fn test_validation_errors(
         offsets.into_array(),
         sizes.into_array(),
         Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list(),
     );
 
     assert!(result.is_err());
@@ -222,7 +258,13 @@ fn test_validate_nullable_offsets() {
     let offsets = PrimitiveArray::from_option_iter(vec![Some(0u32), Some(2), None]).into_array();
     let sizes = buffer![2u32, 1, 2].into_array();
 
-    let result = ListViewArray::try_new(elements, offsets, sizes, Validity::NonNullable);
+    let result = ListViewArray::try_new(
+        elements,
+        offsets,
+        sizes,
+        Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list(),
+    );
 
     assert!(result.is_err());
     assert!(
@@ -240,7 +282,13 @@ fn test_validate_nullable_sizes() {
     let offsets = buffer![0u32, 2, 1].into_array();
     let sizes = PrimitiveArray::from_option_iter(vec![Some(2u32), None, Some(2)]).into_array();
 
-    let result = ListViewArray::try_new(elements, offsets, sizes, Validity::NonNullable);
+    let result = ListViewArray::try_new(
+        elements,
+        offsets,
+        sizes,
+        Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list(),
+    );
 
     assert!(result.is_err());
     assert!(
@@ -259,7 +307,13 @@ fn test_validate_size_type_too_large() {
     let offsets = buffer![0u32, 2, 1].into_array();
     let sizes = buffer![2u64, 1, 2].into_array();
 
-    let result = ListViewArray::try_new(elements, offsets, sizes, Validity::NonNullable);
+    let result = ListViewArray::try_new(
+        elements,
+        offsets,
+        sizes,
+        Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list(),
+    );
 
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("size type"));
@@ -273,7 +327,13 @@ fn test_validate_offset_plus_size_overflow() {
     let offsets = buffer![u32::MAX - 1, 0, 0].into_array();
     let sizes = buffer![2u32, 1, 1].into_array();
 
-    let result = ListViewArray::try_new(elements, offsets, sizes, Validity::NonNullable);
+    let result = ListViewArray::try_new(
+        elements,
+        offsets,
+        sizes,
+        Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list(),
+    );
 
     assert!(result.is_err());
     let err = result.unwrap_err();
@@ -292,7 +352,13 @@ fn test_validate_invalid_validity_length() {
     // Validity has wrong length.
     let validity = Validity::Array(BoolArray::from_iter(vec![true, false]).into_array());
 
-    let result = ListViewArray::try_new(elements, offsets, sizes, validity);
+    let result = ListViewArray::try_new(
+        elements,
+        offsets,
+        sizes,
+        validity,
+        ListViewShape::as_zero_copy_to_list(),
+    );
 
     assert!(result.is_err());
     let err = result.unwrap_err();
@@ -310,7 +376,13 @@ fn test_validate_non_integer_offsets() {
     let offsets = buffer![0.0f32, 2.0, 4.0].into_array();
     let sizes = buffer![2u32, 2, 1].into_array();
 
-    let result = ListViewArray::try_new(elements, offsets, sizes, Validity::NonNullable);
+    let result = ListViewArray::try_new(
+        elements,
+        offsets,
+        sizes,
+        Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list(),
+    );
 
     assert!(result.is_err());
     let err = result.unwrap_err();
@@ -328,7 +400,15 @@ fn test_validate_different_int_types() {
     let offsets = buffer![0u64, 2, 1].into_array();
     let sizes = buffer![2u32, 1, 2].into_array();
 
-    let result = ListViewArray::try_new(elements, offsets, sizes, Validity::NonNullable);
+    let result = ListViewArray::try_new(
+        elements,
+        offsets,
+        sizes,
+        Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list()
+            .with_sorted_offsets(false)
+            .with_no_overlaps(false),
+    );
     assert!(result.is_ok());
 }
 
@@ -340,7 +420,13 @@ fn test_validate_u64_overflow() {
     let offsets = buffer![u64::MAX - 10, 0, 0].into_array();
     let sizes = buffer![20u64, 1, 1].into_array();
 
-    let result = ListViewArray::try_new(elements, offsets, sizes, Validity::NonNullable);
+    let result = ListViewArray::try_new(
+        elements,
+        offsets,
+        sizes,
+        Validity::NonNullable,
+        ListViewShape::as_zero_copy_to_list(),
+    );
 
     assert!(result.is_err());
     let err = result.unwrap_err();

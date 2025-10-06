@@ -132,32 +132,33 @@ impl CompactCompressor {
                 )?
                 .into_array()
             }
-            Canonical::List(list_array) => {
-                let compressed_elems = self.compress(list_array.elements())?;
+            Canonical::List(listview) => {
+                let compressed_elems = self.compress(listview.elements())?;
 
                 // Note that since the type of our offsets and sizes is not encoded in our `DType`,
                 // we can narrow the widths.
                 let compressed_offsets =
-                    self.compress(&list_array.offsets().to_primitive().narrow()?.into_array())?;
+                    self.compress(&listview.offsets().to_primitive().narrow()?.into_array())?;
                 let compressed_sizes =
-                    self.compress(&list_array.sizes().to_primitive().narrow()?.into_array())?;
+                    self.compress(&listview.sizes().to_primitive().narrow()?.into_array())?;
 
                 ListViewArray::try_new(
                     compressed_elems,
                     compressed_offsets,
                     compressed_sizes,
-                    list_array.validity().clone(),
+                    listview.validity().clone(),
+                    listview.shape(),
                 )?
                 .into_array()
             }
-            Canonical::FixedSizeList(list_array) => {
-                let compressed_elems = self.compress(list_array.elements())?;
+            Canonical::FixedSizeList(fsl) => {
+                let compressed_elems = self.compress(fsl.elements())?;
 
                 FixedSizeListArray::try_new(
                     compressed_elems,
-                    list_array.list_size(),
-                    list_array.validity().clone(),
-                    list_array.len(),
+                    fsl.list_size(),
+                    fsl.validity().clone(),
+                    fsl.len(),
                 )?
                 .into_array()
             }

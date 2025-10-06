@@ -140,7 +140,7 @@ impl<O: IntegerPType, S: IntegerPType> ColumnExporter for ListExporter<O, S> {
 #[cfg(test)]
 mod tests {
     use vortex::IntoArray as _;
-    use vortex::arrays::VarBinArray;
+    use vortex::arrays::{ListViewShape, VarBinArray};
     use vortex::buffer::{Buffer, buffer};
     use vortex::error::VortexUnwrap;
     use vortex::validity::Validity;
@@ -157,6 +157,7 @@ mod tests {
             Buffer::<u32>::empty().into_array(),
             Buffer::<u32>::empty().into_array(),
             Validity::AllValid,
+            ListViewShape::as_zero_copy_to_list(),
         )
         .unwrap()
         .into_array();
@@ -185,6 +186,7 @@ mod tests {
             buffer![1u8, 2, 3].into_array(),
             buffer![1u8, 1, 1].into_array(),
             Validity::AllValid,
+            ListViewShape::as_zero_copy_to_list(),
         )
         .unwrap()
         .into_array();
@@ -219,6 +221,7 @@ mod tests {
             buffer![0u8, 0, 3, 4].into_array(),
             buffer![0u8, 3, 1, 0].into_array(),
             Validity::from_iter([true, true, false, true]),
+            ListViewShape::as_zero_copy_to_list(),
         )
         .unwrap()
         .into_array();

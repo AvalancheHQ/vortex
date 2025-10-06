@@ -29,8 +29,8 @@ use vortex_error::{VortexExpect as _, vortex_panic};
 use vortex_scalar::i256;
 
 use crate::arrays::{
-    BoolArray, DecimalArray, FixedSizeListArray, ListArray, ListViewArray, NullArray,
-    PrimitiveArray, StructArray, TemporalArray, VarBinArray, VarBinViewArray,
+    BoolArray, DecimalArray, FixedSizeListArray, ListArray, ListViewArray, ListViewShape,
+    NullArray, PrimitiveArray, StructArray, TemporalArray, VarBinArray, VarBinViewArray,
 };
 use crate::arrow::FromArrowArray;
 use crate::validity::Validity;
@@ -371,7 +371,10 @@ impl<O: OffsetSizeTrait + NativePType> FromArrowArray<&GenericListViewArray<O>> 
         let sizes = array.sizes().clone().into_array();
         let nulls = nulls(array.nulls(), nullable);
 
-        ListViewArray::try_new(elements, offsets, sizes, nulls)
+        // We know nothing about the shape of the data coming from Arrow.
+        let shape = ListViewShape::default();
+
+        ListViewArray::try_new(elements, offsets, sizes, nulls, shape)
             .vortex_expect("Failed to convert Arrow ListViewArray to Vortex ListViewArray")
             .into_array()
     }

@@ -62,6 +62,7 @@ pub fn mask_canonical_array(canonical: Canonical, mask: &Mask) -> VortexResult<A
                 array.offsets().clone(),
                 array.sizes().clone(),
                 new_validity,
+                array.shape(),
             )
             .vortex_unwrap()
             .into_array()
@@ -130,8 +131,8 @@ fn apply_mask_to_validity(validity: &Validity, mask: &Mask) -> Validity {
 #[cfg(test)]
 mod tests {
     use vortex_array::arrays::{
-        BoolArray, DecimalArray, FixedSizeListArray, ListViewArray, NullArray, PrimitiveArray,
-        StructArray, VarBinViewArray,
+        BoolArray, DecimalArray, FixedSizeListArray, ListViewArray, ListViewShape, NullArray,
+        PrimitiveArray, StructArray, VarBinViewArray,
     };
     use vortex_array::{Array, IntoArray};
     use vortex_dtype::{DecimalDType, FieldNames, Nullability};
@@ -243,9 +244,14 @@ mod tests {
         let elements = PrimitiveArray::from_iter([1i32, 2, 3, 4, 5, 6]).into_array();
         let offsets = PrimitiveArray::from_iter([0i32, 2, 4]).into_array();
         let sizes = PrimitiveArray::from_iter([2i32, 2, 2]).into_array();
-        let array =
-            ListViewArray::try_new(elements, offsets, sizes, Nullability::NonNullable.into())
-                .unwrap();
+        let array = ListViewArray::try_new(
+            elements,
+            offsets,
+            sizes,
+            Nullability::NonNullable.into(),
+            ListViewShape::as_zero_copy_to_list(),
+        )
+        .unwrap();
 
         let mask = Mask::from_iter([false, true, false]);
 

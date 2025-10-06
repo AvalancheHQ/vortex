@@ -399,7 +399,7 @@ mod tests {
 
     use crate::arrays::{
         BoolArray, ConstantArray, ConstantVTable, ListArray, ListVTable, ListViewArray,
-        PrimitiveArray, VarBinArray, list_view_from_list,
+        ListViewShape, PrimitiveArray, VarBinArray, list_view_from_list,
     };
     use crate::canonical::ToCanonical;
     use crate::compute::list_contains;
@@ -597,6 +597,7 @@ mod tests {
             offsets,
             sizes,
             Validity::NonNullable,
+            ListViewShape::as_zero_copy_to_list(),
         )
         .unwrap();
 
@@ -619,9 +620,14 @@ mod tests {
         let offsets = Buffer::from_iter([0u32, 2, 4]).into_array();
         let sizes = Buffer::from_iter([2u32, 2, 1]).into_array();
 
-        let list_array =
-            ListViewArray::try_new(elements.into_array(), offsets, sizes, Validity::NonNullable)
-                .unwrap();
+        let list_array = ListViewArray::try_new(
+            elements.into_array(),
+            offsets,
+            sizes,
+            Validity::NonNullable,
+            ListViewShape::as_zero_copy_to_list(),
+        )
+        .unwrap();
 
         // Test searching for a null value
         let null_search = ConstantArray::new(
@@ -657,9 +663,14 @@ mod tests {
         let offsets = Buffer::from_iter([0u32, 1, 4, 0]).into_array();
         let sizes = Buffer::from_iter([1u32, 2, 1, 0]).into_array();
 
-        let list_array =
-            ListViewArray::try_new(elements.into_array(), offsets, sizes, Validity::NonNullable)
-                .unwrap();
+        let list_array = ListViewArray::try_new(
+            elements.into_array(),
+            offsets,
+            sizes,
+            Validity::NonNullable,
+            ListViewShape::default(),
+        )
+        .unwrap();
 
         // Test searching for value 2, which appears only in list 1
         let search = ConstantArray::new(Scalar::from(2i32), list_array.len());
@@ -691,9 +702,14 @@ mod tests {
         let offsets = Buffer::from_iter([0u8, 100, 200, 254]).into_array();
         let sizes = Buffer::from_iter([50u8, 50, 54, 2]).into_array(); // Last list goes to index 255
 
-        let list_array =
-            ListViewArray::try_new(elements.into_array(), offsets, sizes, Validity::NonNullable)
-                .unwrap();
+        let list_array = ListViewArray::try_new(
+            elements.into_array(),
+            offsets,
+            sizes,
+            Validity::NonNullable,
+            ListViewShape::as_zero_copy_to_list().with_no_gaps(false),
+        )
+        .unwrap();
 
         // Search for value 255 which should only be in the last list
         let search = ConstantArray::new(Scalar::from(255i32), list_array.len());
