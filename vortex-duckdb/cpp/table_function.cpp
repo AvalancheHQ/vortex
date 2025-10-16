@@ -148,8 +148,8 @@ void c_function(ClientContext &context, TableFunctionInput &input, DataChunk &ou
     auto local_data = input.local_state->Cast<CTableLocalData>().ffi_data->DataPtr();
 
     duckdb_vx_error error_out = nullptr;
-    bind.info->vtab.function(ctx, bind_data, global_data, local_data, reinterpret_cast<duckdb_data_chunk>(&output),
-                             &error_out);
+    bind.info->vtab.function(ctx, bind_data, global_data, local_data,
+                             reinterpret_cast<duckdb_data_chunk>(&output), &error_out);
     if (error_out) {
         throw InvalidInputException(IntoErrString(error_out));
     }
@@ -255,8 +255,8 @@ virtual_column_map_t c_get_virtual_columns(ClientContext &context, optional_ptr<
 }
 
 extern "C" void duckdb_vx_tfunc_virtual_columns_push(duckdb_vx_tfunc_virtual_cols_result ffi_result,
-                                                  idx_t column_idx, const char *name_str, size_t name_len,
-                                                  duckdb_logical_type ffi_type) {
+                                                     idx_t column_idx, const char *name_str, size_t name_len,
+                                                     duckdb_logical_type ffi_type) {
     if (!ffi_result || !name_str || !ffi_type) {
         return;
     }
@@ -289,7 +289,7 @@ OperatorPartitionData c_get_partition_data(ClientContext &context, TableFunction
 InsertionOrderPreservingMap<string> c_to_string(TableFunctionToStringInput &input) {
     InsertionOrderPreservingMap<string> result;
     auto &bind = input.bind_data->Cast<CTableBindData>();
-    
+
     // Call the Rust side to get custom string representation if available
     if (bind.info->vtab.to_string) {
         auto map = bind.info->vtab.to_string(bind.ffi_data->DataPtr());
@@ -303,7 +303,7 @@ InsertionOrderPreservingMap<string> c_to_string(TableFunctionToStringInput &inpu
             duckdb_vx_string_map_free(map);
         }
     }
-    
+
     return result;
 }
 
