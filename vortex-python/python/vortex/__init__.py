@@ -75,7 +75,6 @@ from .arrays import (
     Array,
     PyArray,
     _unpickle_array,  # pyright: ignore[reportPrivateUsage]
-    _unpickle_array_p5,  # pyright: ignore[reportPrivateUsage]
     array,
 )
 from .file import VortexFile, open
@@ -164,7 +163,6 @@ __all__ = [
     "ArrayParts",
     # Pickle
     "_unpickle_array",
-    "_unpickle_array_p5",
     # File
     "VortexFile",
     "open",
