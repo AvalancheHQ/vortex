@@ -106,6 +106,9 @@ where
         indices_buf.set_len(padded_len);
     }
 
+    let values_len = values_buf.len();
+    assert!(indices_buf.iter().all(|i| (*i as usize) < values_len));
+
     RLEArray::try_new(
         values_buf.into_array(),
         PrimitiveArray::new(indices_buf.freeze(), padded_validity(array)).into_array(),
