@@ -34,18 +34,36 @@ impl OperationsVTable<RLEVTable> for RLEVTable {
             .slice(chunk_start_idx * FL_CHUNK_SIZE..chunk_end_idx * FL_CHUNK_SIZE);
 
         // SAFETY: Slicing preserves all invariants.
-        unsafe {
-            RLEArray::new_unchecked(
-                sliced_values,
-                sliced_indices,
-                sliced_values_idx_offsets,
-                array.dtype.clone(),
-                // Keep the offset relative to the first chunk.
-                (array.offset + range.start) % FL_CHUNK_SIZE,
-                range.len(),
-            )
-            .into_array()
-        }
+        let rle = RLEArray::try_new(
+            sliced_values,
+            sliced_indices,
+            sliced_values_idx_offsets,
+            // Keep the offset relative to the first chunk.
+            (array.offset + range.start) % FL_CHUNK_SIZE,
+            range.len(),
+        )
+        .unwrap();
+
+        // SAFETY: Slicing preserves all invariants.
+        // unsafe {
+        //     RLEArray::new_unchecked(
+        //         sliced_values,
+        //         sliced_indices,
+        //         sliced_values_idx_offsets,
+        //         array.dtype.clone(),
+        //         // Keep the offset relative to the first chunk.
+        //         (array.offset + range.start) % FL_CHUNK_SIZE,
+        //         range.len(),
+        //     )
+        //     .into_array()
+        // }
+
+        std::hint::black_box(rle.to_canonical());
+        std::hint::black_box(rle.indices.to_canonical());
+        std::hint::black_box(rle.values().to_canonical());
+        std::hint::black_box(rle.values_idx_offsets().to_canonical());
+
+        rle.into_array()
     }
 
     fn scalar_at(array: &RLEArray, index: usize) -> Scalar {
