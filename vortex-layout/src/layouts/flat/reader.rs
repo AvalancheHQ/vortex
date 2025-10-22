@@ -224,6 +224,8 @@ impl LayoutReader for FlatReader {
                 array = expr.evaluate(&Scope::new(array))?;
             }
 
+            array.canonicalize_debug();
+
             Ok(array)
         }
         .boxed())

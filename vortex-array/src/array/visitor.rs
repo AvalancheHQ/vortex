@@ -38,6 +38,9 @@ pub trait ArrayVisitor {
 
     /// Formats a human-readable metadata description.
     fn metadata_fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result;
+
+    /// Recursively canonicalizes for debugging purposes.
+    fn canonicalize_debug(&self);
 }
 
 impl ArrayVisitor for Arc<dyn Array> {
@@ -71,6 +74,10 @@ impl ArrayVisitor for Arc<dyn Array> {
 
     fn metadata_fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.as_ref().metadata_fmt(f)
+    }
+
+    fn canonicalize_debug(&self) {
+        self.as_ref().canonicalize_debug();
     }
 }
 
