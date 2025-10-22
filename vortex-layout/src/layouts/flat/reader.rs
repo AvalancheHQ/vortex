@@ -210,6 +210,10 @@ impl LayoutReader for FlatReader {
                 array = array.slice(row_range.clone());
             }
 
+            println!("row range: {:?}", row_range);
+            println!("mask: {:?}", mask);
+            println!("tree display: {}", array.display_tree());
+
             // Filter the array based on the row mask.
             if !mask.all_true() {
                 array = filter(&array, &mask)?;
