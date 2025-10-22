@@ -729,18 +729,4 @@ impl<V: VTable> ArrayVisitor for ArrayAdapter<V> {
             Ok(Some(metadata)) => Debug::fmt(&metadata, f),
         }
     }
-
-    fn canonicalize_debug(&self) {
-        struct NamedChildrenCollector {}
-
-        impl ArrayChildVisitor for NamedChildrenCollector {
-            fn visit_child(&mut self, name: &str, array: &dyn Array) {
-                array.to_canonical();
-            }
-        }
-
-        let mut collector = NamedChildrenCollector {};
-
-        <V::VisitorVTable as VisitorVTable<V>>::visit_children(&self.0, &mut collector);
-    }
 }
