@@ -168,6 +168,18 @@ fn try_compress_delta(
     let compressed_deltas =
         IntCompressor::compress_no_dict(&deltas, is_sample, allowed_cascading, excludes)?;
 
-    DeltaArray::try_from_delta_compress_parts(compressed_bases, compressed_deltas)
-        .map(DeltaArray::into_array)
+    let d = DeltaArray::try_from_delta_compress_parts(compressed_bases, compressed_deltas)
+        .map(DeltaArray::into_array)?;
+
+    let expected: ArrayRef = d.clone().into_array();
+    let actual: ArrayRef = primitive_array.clone().into_array();
+    assert_eq!(expected.dtype(), actual.dtype());
+
+    let expected_contents: Vec<_> = (0..expected.len())
+        .map(|idx| expected.scalar_at(idx))
+        .collect();
+    let actual_contents: Vec<_> = (0..actual.len()).map(|idx| actual.scalar_at(idx)).collect();
+    assert_eq!(expected_contents, actual_contents);
+
+    Ok(d)
 }
