@@ -127,7 +127,7 @@ pub trait ALPFloat: private::Sealed + Float + Display + NativePType {
         Buffer<Self::ALPInt>,
         Buffer<u64>,
         Buffer<Self>,
-        Buffer<u64>,
+        BufferMut<u64>,
     ) {
         let exp = exponents.unwrap_or_else(|| Self::find_best_exponents(values));
 
@@ -158,7 +158,7 @@ pub trait ALPFloat: private::Sealed + Float + Display + NativePType {
             encoded_output.freeze(),
             patch_indices.freeze(),
             patch_values.freeze(),
-            chunk_offsets.freeze(),
+            chunk_offsets,
         )
     }
 
@@ -190,6 +190,33 @@ pub trait ALPFloat: private::Sealed + Float + Display + NativePType {
             values.push(Self::decode_single(*encoded, exponents));
         }
         values
+    }
+
+    /// Decodes a slice of encoded ALP values into the output buffer.
+    ///
+    /// ## Preconditions
+    ///
+    /// The `output` buffer must have sufficient spare capacity for `encoded.len()` elements
+    fn decode_into_buffer(
+        encoded: &[Self::ALPInt],
+        exponents: Exponents,
+        output: &mut BufferMut<Self>,
+    ) {
+        let input_len = encoded.len();
+        let current_len = output.len();
+        let buffer_uninit = output.spare_capacity_mut();
+
+        // SAFETY: `MaybeUninit<Self>` and `Self` have the same layout.
+        let buffer_values: &mut [Self] =
+            unsafe { std::mem::transmute(&mut buffer_uninit[..input_len]) };
+
+        for (idx, &encoded_val) in encoded.iter().enumerate() {
+            buffer_values[idx] = Self::decode_single(encoded_val, exponents);
+        }
+
+        unsafe {
+            output.set_len(current_len + input_len);
+        }
     }
 
     fn decode_buffer(encoded: BufferMut<Self::ALPInt>, exponents: Exponents) -> BufferMut<Self> {
