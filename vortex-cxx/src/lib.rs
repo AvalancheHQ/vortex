@@ -26,6 +26,7 @@ pub(crate) static RUNTIME: LazyLock<CurrentThreadRuntime> =
     LazyLock::new(CurrentThreadRuntime::new);
 
 #[cxx::bridge(namespace = "vortex::ffi")]
+#[allow(let_underscore_drop)]
 mod ffi {
     extern "Rust" {
         type DType;

@@ -57,7 +57,7 @@ pub fn create_run_jit_kernel(
             .record_event(Some(CU_EVENT_DEFAULT))
             .ok()
             .vortex_expect("Failed to record event");
-        let _ = unsafe { launch_builder.launch(launch_config) };
+        drop(unsafe { launch_builder.launch(launch_config) });
         ctx.synchronize()
             .map_err(|e| vortex_err!("Failed to synchronize: {e}"))?;
         let end = stream
