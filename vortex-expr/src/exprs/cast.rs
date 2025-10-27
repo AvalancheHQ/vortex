@@ -139,6 +139,7 @@ mod tests {
     use vortex_array::arrays::StructArray;
     use vortex_buffer::buffer;
     use vortex_dtype::{DType, Nullability, PType};
+    use vortex_error::VortexUnwrap as _;
 
     use crate::{ExprRef, Scope, cast, get_item, root, test_harness};
 
@@ -156,7 +157,7 @@ mod tests {
     #[test]
     fn replace_children() {
         let expr = cast(root(), DType::Bool(Nullability::Nullable));
-        let _ = expr.with_children(vec![root()]);
+        expr.with_children(vec![root()]).vortex_unwrap();
     }
 
     #[test]

@@ -111,7 +111,7 @@ fn test_cast_from_bool(array: &dyn Array, nullability: Nullability) {
     test_cast_nullability_changes(array, &DType::Bool(Nullability::Nullable));
     if nullability == Nullability::Nullable {
         // Try casting to non-nullable (may fail if nulls present)
-        let _ = cast(array, &DType::Bool(Nullability::NonNullable));
+        cast(array, &DType::Bool(Nullability::NonNullable)).vortex_unwrap();
     }
 
     // Test bool to numeric casts (true -> 1, false -> 0)
@@ -126,10 +126,11 @@ fn test_cast_from_decimal(array: &dyn Array, nullability: Nullability) {
         test_cast_nullability_changes(array, &DType::Decimal(*decimal_type, Nullability::Nullable));
         if nullability == Nullability::Nullable {
             // Try casting to non-nullable (may fail if nulls present)
-            let _ = cast(
+            cast(
                 array,
                 &DType::Decimal(*decimal_type, Nullability::NonNullable),
-            );
+            )
+            .vortex_unwrap();
         }
     }
 }
@@ -139,7 +140,7 @@ fn test_cast_from_utf8(array: &dyn Array, nullability: Nullability) {
     test_cast_nullability_changes(array, &DType::Utf8(Nullability::Nullable));
     if nullability == Nullability::Nullable {
         // Try casting to non-nullable (may fail if nulls present)
-        let _ = cast(array, &DType::Utf8(Nullability::NonNullable));
+        cast(array, &DType::Utf8(Nullability::NonNullable)).vortex_unwrap();
     }
 
     // UTF-8 strings can potentially be cast to Binary
@@ -151,7 +152,7 @@ fn test_cast_from_binary(array: &dyn Array, nullability: Nullability) {
     test_cast_nullability_changes(array, &DType::Binary(Nullability::Nullable));
     if nullability == Nullability::Nullable {
         // Try casting to non-nullable (may fail if nulls present)
-        let _ = cast(array, &DType::Binary(Nullability::NonNullable));
+        cast(array, &DType::Binary(Nullability::NonNullable)).vortex_unwrap();
     }
 
     // Binary might be castable to UTF-8 if it contains valid UTF-8
@@ -164,10 +165,11 @@ fn test_cast_from_struct(array: &dyn Array, nullability: Nullability) {
         test_cast_nullability_changes(array, &DType::Struct(fields.clone(), Nullability::Nullable));
         if nullability == Nullability::Nullable {
             // Try casting to non-nullable (may fail if nulls present)
-            let _ = cast(
+            cast(
                 array,
                 &DType::Struct(fields.clone(), Nullability::NonNullable),
-            );
+            )
+            .vortex_unwrap();
         }
     }
 }
@@ -181,10 +183,11 @@ fn test_cast_from_list(array: &dyn Array, nullability: Nullability) {
         );
         if nullability == Nullability::Nullable {
             // Try casting to non-nullable (may fail if nulls present)
-            let _ = cast(
+            cast(
                 array,
                 &DType::List(element_type.clone(), Nullability::NonNullable),
-            );
+            )
+            .vortex_unwrap();
         }
     }
 }
@@ -198,10 +201,11 @@ fn test_cast_from_fixed_size_list(array: &dyn Array, nullability: Nullability) {
         );
         if nullability == Nullability::Nullable {
             // Try casting to non-nullable (may fail if nulls present)
-            let _ = cast(
+            cast(
                 array,
                 &DType::FixedSizeList(element_type.clone(), *list_size, Nullability::NonNullable),
-            );
+            )
+            .vortex_unwrap();
         }
     }
 }
