@@ -41,7 +41,7 @@ pub fn create_run_jit_kernel(
     let kernel = create_kernel(ctx.clone(), output.as_ref(), kernel_output_arr_name)?;
 
     let num_chunks =
-        u32::try_from(array.len().div_ceil(1024)).vortex_expect("Too many grid elements");
+        u32::try_from(array.len().div_ceil(2048)).vortex_expect("Too many grid elements");
 
     let mut launch_builder = stream.launch_builder(&kernel);
 
@@ -52,7 +52,7 @@ pub fn create_run_jit_kernel(
         block_dim: (config.block_width, 1, 1),
         shared_mem_bytes: u32::try_from(output.output_type().byte_width())
             .vortex_expect("oversized output type byte width")
-            * 1024,
+            * 2048,
     };
 
     collect_args(output.as_ref(), stream.clone(), &mut launch_builder)?;

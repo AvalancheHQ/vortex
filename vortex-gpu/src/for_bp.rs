@@ -114,8 +114,6 @@ pub fn cuda_for_bp_unpack_timed(
         .ok()
         .vortex_expect("Failed to record event");
     task.launch_task()?;
-    ctx.synchronize()
-        .map_err(|e| vortex_err!("Failed to synchronize: {e}"))?;
     let end = stream
         .record_event(Some(CU_EVENT_DEFAULT))
         .ok()

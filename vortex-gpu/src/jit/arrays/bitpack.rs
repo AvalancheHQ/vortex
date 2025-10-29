@@ -80,10 +80,10 @@ impl<P: NativePType + DeviceRepr> GPUPipelineJIT for BitPack<P> {
         writeln!(w, "{output_cuda_type} {};", self.tmp_var())?;
         writeln!(w, "{uoutput_cuda_type} {};", self.src_var())?;
         writeln!(w, "{uoutput_cuda_type} {};", self.utmp_var())?;
-        writeln!(w, "unsigned int lane = threadIdx.x;")?;
+        writeln!(w, "unsigned int lane = threadIdx.x % 32;")?;
         writeln!(
             w,
-            "{uoutput_cuda_type} *{in_l} = {in_g} + (blockIdx.x * 128 * {bit_width} / {bit_size});",
+            "{uoutput_cuda_type} *{in_l} = {in_g} + ((blockIdx.x + threadIdx.x / 32) * 128 * {bit_width} / {bit_size});",
             in_l = self.in_var_l(),
             in_g = self.in_var_g(),
             bit_width = self.bit_width,
@@ -214,7 +214,7 @@ impl<P: NativePType + DeviceRepr> GPUPipelineJIT for BitPack<P> {
 
     fn launch_config(&self) -> GPULaunchConfig {
         GPULaunchConfig {
-            block_width: if P::PTYPE == PType::U64 { 16 } else { 32 },
+            block_width: if P::PTYPE == PType::U64 { 32 } else { 64 },
         }
     }
 }

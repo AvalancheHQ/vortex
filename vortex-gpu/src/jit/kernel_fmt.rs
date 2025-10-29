@@ -76,11 +76,11 @@ pub fn create_kernel_str(
         w.indent(|w| {
             writeln!(
                 w,
-                "{output_type} *output = _output + (blockIdx.x * 1024);",
+                "{output_type} *output = _output + ((blockIdx.x + threadIdx.x / 32) * 1024);",
                 output_type = output.output_parameter().type_
             )?;
 
-            writeln!(w, "__shared__ float {kernel_out_array}[1024];")?;
+            writeln!(w, "__shared__ float {kernel_out_array}[2048];")?;
 
             write_kernel_declarations(w, output);
             writeln!(w)?;
@@ -89,7 +89,7 @@ pub fn create_kernel_str(
             })?;
             writeln!(w)?;
 
-            writeln!(w, "for (int i = 0; i < 32; i++) {{")?;
+            writeln!(w, "for (int i = 0; i < blockDim.x; i++) {{")?;
             w.indent(|w| {
                 writeln!(w, "auto idx = i * 32 + threadIdx.x;")?;
                 writeln!(w, "output[idx] = {kernel_out_array}[idx];")
