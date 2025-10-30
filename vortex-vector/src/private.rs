@@ -32,5 +32,8 @@ impl<T: NativePType> Sealed for PVectorMut<T> {}
 impl<T: VarBinType> Sealed for VarBinVector<T> {}
 impl<T: VarBinType> Sealed for VarBinVectorMut<T> {}
 
+impl Sealed for FixedSizeListVector {}
+impl Sealed for FixedSizeListVectorMut {}
+
 impl Sealed for StructVector {}
 impl Sealed for StructVectorMut {}

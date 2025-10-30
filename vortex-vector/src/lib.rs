@@ -11,12 +11,14 @@
 #![deny(clippy::missing_safety_doc)]
 
 mod bool;
+mod fixed_size_list;
 mod null;
 mod primitive;
 mod struct_;
 mod varbin;
 
 pub use bool::*;
+pub use fixed_size_list::*;
 pub use null::*;
 pub use primitive::*;
 pub use struct_::*;

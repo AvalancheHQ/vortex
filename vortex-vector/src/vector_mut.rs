@@ -9,6 +9,7 @@
 use vortex_dtype::DType;
 use vortex_error::vortex_panic;
 
+use crate::fixed_size_list::FixedSizeListVectorMut;
 use crate::varbin::{BinaryVectorMut, StringVectorMut};
 use crate::{
     BoolVectorMut, NullVectorMut, PrimitiveVectorMut, StructVectorMut, Vector, VectorMutOps,
@@ -39,6 +40,8 @@ pub enum VectorMut {
     String(StringVectorMut),
     /// Mutable Binary vectors.
     Binary(BinaryVectorMut),
+    /// Mutable vectors of Lists with fixed sizes.
+    FixedSizeList(FixedSizeListVectorMut),
     /// Mutable vectors of Struct elements.
     Struct(StructVectorMut),
 }
@@ -52,6 +55,7 @@ impl VectorMut {
             DType::Primitive(ptype, _) => {
                 PrimitiveVectorMut::with_capacity(*ptype, capacity).into()
             }
+            DType::FixedSizeList(..) => todo!("TODO(connor)"),
             DType::Struct(struct_fields, _) => {
                 StructVectorMut::with_capacity(struct_fields, capacity).into()
             }
@@ -144,6 +148,14 @@ impl VectorMut {
         vortex_panic!("Expected BinaryVectorMut, got {self:?}");
     }
 
+    /// Returns a reference to the inner [`FixedSizeListVectorMut`] if `self` is of that variant.
+    pub fn as_fixed_size_list(&self) -> &FixedSizeListVectorMut {
+        if let VectorMut::FixedSizeList(v) = self {
+            return v;
+        }
+        vortex_panic!("Expected FixedSizeListVectorMut, got {self:?}");
+    }
+
     /// Returns a reference to the inner [`StructVectorMut`] if `self` is of that variant.
     pub fn as_struct(&self) -> &StructVectorMut {
         if let VectorMut::Struct(v) = self {
@@ -192,6 +204,15 @@ impl VectorMut {
             return v;
         }
         vortex_panic!("Expected BinaryVectorMut, got {self:?}");
+    }
+
+    /// Consumes `self` and returns the inner [`FixedSizeListVectorMut`] if `self` is of that
+    /// variant.
+    pub fn into_fixed_size_list(self) -> FixedSizeListVectorMut {
+        if let VectorMut::FixedSizeList(v) = self {
+            return v;
+        }
+        vortex_panic!("Expected FixedSizeListVectorMut, got {self:?}");
     }
 
     /// Consumes `self` and returns the inner [`StructVectorMut`] if `self` is of that variant.

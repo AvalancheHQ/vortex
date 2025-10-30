@@ -8,8 +8,8 @@ use std::ops::BitAnd;
 use vortex_dtype::NativePType;
 use vortex_mask::Mask;
 use vortex_vector::{
-    BoolVector, NullVector, PVector, PrimitiveVector, StructVector, VarBinType, VarBinVector,
-    Vector, match_each_pvector, match_each_vector,
+    BoolVector, FixedSizeListVector, NullVector, PVector, PrimitiveVector, StructVector,
+    VarBinType, VarBinVector, Vector, match_each_pvector, match_each_vector,
 };
 
 /// Trait for masking the validity of an array or vector.
@@ -61,6 +61,12 @@ impl<T: VarBinType> MaskValidity for VarBinVector<T> {
         let (views, buffers, validity) = self.into_parts();
         // SAFETY: we are preserving the original views and buffers, only modifying the validity.
         unsafe { Self::new_unchecked(views, buffers, validity.bitand(mask)) }
+    }
+}
+
+impl MaskValidity for FixedSizeListVector {
+    fn mask_validity(self, _mask: &Mask) -> Self {
+        todo!()
     }
 }
 
