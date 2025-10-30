@@ -379,7 +379,8 @@ where
 
         vortex_ensure!(
             end <= elements_len,
-            "offset[{i}] + size[{i}] = {end} exceeds elements length {elements_len}",
+            "offset[{i}] + size[{i}] = {offset_u64} + {size_u64} = {end} \
+            exceeds elements length {elements_len}",
         );
     }
 

@@ -124,9 +124,9 @@ fn swizzle_list_chunks(
 
     for chunk in chunks {
         let chunk_array = chunk.to_listview();
-        // By rebuilding as zero-copy to `List`, we make the final output `ListView` also
-        // zero-copyable to `List`.
-        let chunk_array = chunk_array.rebuild(ListViewRebuildMode::MakeZeroCopyToList);
+        // By rebuilding as zero-copy to `List` and trimming all elements (to prevent gaps), we make
+        // the final output `ListView` also zero-copyable to `List`.
+        let chunk_array = chunk_array.rebuild(ListViewRebuildMode::MakeExact);
 
         // Add the `elements` of the current array as a new chunk.
         list_elements_chunks.push(chunk_array.elements().clone());

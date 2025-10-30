@@ -281,7 +281,8 @@ mod tests {
     };
     use super::recursive_list_from_list_view;
     use crate::arrays::{
-        list_from_list_view, list_view_from_list, BoolArray, FixedSizeListArray, ListArray, ListViewArray, ListViewShape, PrimitiveArray, StructArray
+        BoolArray, FixedSizeListArray, ListArray, ListViewArray, ListViewShape, PrimitiveArray,
+        StructArray, list_from_list_view, list_view_from_list,
     };
     use crate::validity::Validity;
     use crate::vtable::ValidityHelper;

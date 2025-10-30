@@ -26,6 +26,11 @@ pub enum ListViewRebuildMode {
     /// the [`ListViewArray`].
     TrimElements,
 
+    /// Equivalent to `MakeZeroCopyToList` plus `TrimElements`.
+    ///
+    /// TODO more docs.
+    MakeExact,
+
     /// Removes any unused data from the underlying `elements` array.
     ///
     /// This mode will rebuild the `elements` array in the process, but it will keep any overlapping
@@ -63,6 +68,9 @@ impl ListViewArray {
         match mode {
             ListViewRebuildMode::MakeZeroCopyToList => self.rebuild_zero_copy_to_list(),
             ListViewRebuildMode::TrimElements => self.rebuild_trim_elements(),
+            ListViewRebuildMode::MakeExact => {
+                self.rebuild_zero_copy_to_list().rebuild_trim_elements()
+            }
             ListViewRebuildMode::RemoveGaps => self.rebuild_remove_gaps::<false>(),
             ListViewRebuildMode::RemoveNulls => self.rebuild_remove_gaps::<true>(),
             ListViewRebuildMode::OverlapCompression => unimplemented!("Does P=NP?"),
@@ -82,27 +90,38 @@ impl ListViewArray {
             return self.clone();
         }
 
+        let offsets_ptype = self.offsets().dtype().as_ptype();
+        let sizes_ptype = self.sizes().dtype().as_ptype();
+
+        match_each_integer_ptype!(offsets_ptype, |O| {
+            match_each_integer_ptype!(sizes_ptype, |S| { self.naive_rebuild::<O, S>() })
+        })
+    }
+
+    /// The inner function for `rebuild_zero_copy_to_list`, which naively rebuilds a `ListViewArray`
+    /// via `append_scalar`.
+    fn naive_rebuild<O: IntegerPType, S: IntegerPType>(&self) -> ListViewArray {
         let element_dtype = self
             .dtype()
             .as_list_element_opt()
             .vortex_expect("somehow had a canonical list that was not a list");
 
-        let offsets_ptype = self.offsets().dtype().as_ptype();
-        let sizes_ptype = self.sizes().dtype().as_ptype();
+        let mut builder = ListViewBuilder::<O, S>::with_capacity(
+            element_dtype.clone(),
+            self.dtype().nullability(),
+            self.elements().len(),
+            self.len(),
+        );
 
-        match_each_integer_ptype!(offsets_ptype, |O| {
-            match_each_integer_ptype!(sizes_ptype, |S| {
-                let mut builder = ListViewBuilder::<O, S>::with_capacity(
-                    element_dtype.clone(),
-                    self.dtype().nullability(),
-                    self.elements().len(),
-                    self.len(),
-                );
+        for i in 0..self.len() {
+            let list = self.scalar_at(i);
 
-                builder.extend_from_array(self.as_ref());
-                builder.finish_into_listview()
-            })
-        })
+            builder
+                .append_scalar(&list)
+                .vortex_expect("was unable to extend the `ListViewBuilder`")
+        }
+
+        builder.finish_into_listview()
     }
 
     /// Rebuilds a [`ListViewArray`] by trimming any unused / unreferenced leading and trailing
@@ -658,9 +677,8 @@ mod tests {
         let elements = PrimitiveArray::from_iter(vec![1i32, 2, 3, 4, 5]).into_array();
         let offsets = PrimitiveArray::from_iter(vec![0u32, 2, 4]).into_array();
         let sizes = PrimitiveArray::from_iter(vec![2u32, 2, 1]).into_array();
-        let validity = Validity::Array(
-            BoolArray::from(BitBuffer::from(vec![true, false, true])).into_array(),
-        );
+        let validity =
+            Validity::Array(BoolArray::from(BitBuffer::from(vec![true, false, true])).into_array());
 
         let listview = ListViewArray::try_new(
             elements,

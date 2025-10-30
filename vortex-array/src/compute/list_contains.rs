@@ -53,7 +53,7 @@ pub(crate) fn warm_up_vtable() -> usize {
 ///
 /// ```rust
 /// # use vortex_array::{Array, IntoArray, ToCanonical};
-/// # use vortex_array::arrays::{ConstantArray, ListViewArray, VarBinArray};
+/// # use vortex_array::arrays::{ConstantArray, ListViewArray, ListViewShape, VarBinArray};
 /// # use vortex_array::compute;
 /// # use vortex_array::validity::Validity;
 /// # use vortex_buffer::{buffer, bitbuffer};
@@ -65,7 +65,13 @@ pub(crate) fn warm_up_vtable() -> usize {
 /// let offsets = buffer![0u32, 1, 3].into_array();
 /// let sizes = buffer![1u32, 2, 2].into_array();
 /// let list_array =
-///     ListViewArray::try_new(elements, offsets, sizes, Validity::NonNullable).unwrap();
+///     ListViewArray::try_new(
+///         elements,
+///         offsets,
+///         sizes,
+///         Validity::NonNullable,
+///         ListViewShape::as_zero_copy_to_list(),
+///     ).unwrap();
 ///
 /// let matches = compute::list_contains(
 ///     list_array.as_ref(),
