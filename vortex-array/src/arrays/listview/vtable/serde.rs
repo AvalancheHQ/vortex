@@ -19,26 +19,16 @@ pub struct ListViewMetadata {
     offset_ptype: i32,
     #[prost(enumeration = "PType", tag = "3")]
     size_ptype: i32,
-    #[prost(bool, tag = "4", default = false)]
-    has_sorted_offsets: bool,
-    #[prost(bool, tag = "5", default = false)]
-    has_no_overlaps: bool,
-    #[prost(bool, tag = "6", default = false)]
-    has_no_gaps: bool,
 }
 
 impl SerdeVTable<ListViewVTable> for ListViewVTable {
     type Metadata = ProstMetadata<ListViewMetadata>;
 
     fn metadata(array: &ListViewArray) -> VortexResult<Option<Self::Metadata>> {
-        let shape = array.shape();
         Ok(Some(ProstMetadata(ListViewMetadata {
             elements_len: array.elements().len() as u64,
             offset_ptype: PType::try_from(array.offsets().dtype())? as i32,
             size_ptype: PType::try_from(array.sizes().dtype())? as i32,
-            has_sorted_offsets: shape.has_sorted_offsets(),
-            has_no_overlaps: shape.has_no_overlaps(),
-            has_no_gaps: shape.has_no_gaps(),
         })))
     }
 
@@ -92,12 +82,8 @@ impl SerdeVTable<ListViewVTable> for ListViewVTable {
             len,
         )?;
 
-        // Extract shape from metadata.
-        let shape = ListViewShape::new(
-            metadata.has_sorted_offsets,
-            metadata.has_no_overlaps,
-            metadata.has_no_gaps,
-        );
+        // TODO(connor): For now, let's not store this metadata on disk.
+        let shape = ListViewShape::default();
 
         ListViewArray::try_new(elements, offsets, sizes, validity, shape)
     }
