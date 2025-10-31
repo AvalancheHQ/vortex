@@ -377,6 +377,13 @@ where
             vortex_err!("offset[{i}] ({offset_u64}) + size[{i}] ({size_u64}) would overflow u64")
         })?;
 
+        if offset_u64 == elements_len {
+            vortex_ensure!(
+                size_u64 == 0,
+                "views to the end of the elements array (length {elements_len}) must have size 0"
+            );
+        }
+
         vortex_ensure!(
             end <= elements_len,
             "offset[{i}] + size[{i}] = {offset_u64} + {size_u64} = {end} \

@@ -403,10 +403,15 @@ impl BtrBlocksCompressor {
                 // list and list view.
                 let list_array = list_from_list_view(list_view_array);
 
+                // Reset the offsets to remove garbage data that might prevent us from narrowing our
+                // offsets.
+                let list_array = list_array.reset_offsets(true)?;
+
                 let compressed_elems = self.compress(list_array.elements())?;
 
-                // Note that since the type of our offsets are not encoded in our `DType`,
-                // we may narrow the widths.
+                // Note that since the type of our offsets are not encoded in our `DType`, and since
+                // we guarantee above that all elements are referenced by offsets, we may narrow the
+                // widths.
 
                 let compressed_offsets = IntCompressor::compress_no_dict(
                     &list_array.offsets().to_primitive().narrow()?,

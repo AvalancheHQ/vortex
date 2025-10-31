@@ -21,19 +21,21 @@ pub fn list_view_from_list(list: ListArray) -> ListViewArray {
         return Canonical::empty(list.dtype()).into_listview();
     }
 
+    // TODO(connor): Should we reset offsets?
+
     let len = list.len();
 
     // Get the `offsets` array directly from the `ListArray` (preserving its type).
     let list_offsets = list.offsets().clone();
-
-    // We need to slice the `offsets` to remove the last element (`ListArray` has n+1 offsets).
-    let adjusted_offsets = list_offsets.slice(0..len);
 
     // Create sizes array by computing differences between consecutive offsets.
     // Use the same dtype as the offsets array to ensure compatibility.
     let sizes = match_each_integer_ptype!(list_offsets.dtype().as_ptype(), |O| {
         build_sizes_from_offsets::<O>(&list)
     });
+
+    // We need to slice the `offsets` to remove the last element (`ListArray` has `n + 1` offsets).
+    let adjusted_offsets = list_offsets.slice(0..len);
 
     // Since the data came from a valid `ListArray`, we know it is zero-copyable to a `ListArray`.
     let shape = ListViewShape::as_zero_copy_to_list();
@@ -58,8 +60,11 @@ fn build_sizes_from_offsets<O: IntegerPType>(list: &ListArray) -> ArrayRef {
 
     // Create `UninitRange` for direct memory access.
     let mut sizes_range = sizes_builder.uninit_range(len);
+
     let offsets = list.offsets().to_primitive();
     let offsets_slice = offsets.as_slice::<O>();
+    debug_assert_eq!(len + 1, offsets_slice.len());
+    debug_assert!(offsets_slice.is_sorted());
 
     // Compute sizes as the difference between consecutive offsets.
     for i in 0..len {

@@ -261,12 +261,12 @@ impl<O: IntegerPType, S: IntegerPType> ArrayBuilder for ListViewBuilder<O, S> {
 
         self.nulls.append_validity_mask(array.validity_mask());
 
-        let curr_elements_len = self.elements_builder.len();
-
         // Bulk append the new elements (which should have no gaps or overlaps).
+        let old_elements_len = self.elements_builder.len();
         self.elements_builder
             .reserve_exact(listview.elements().len());
         self.elements_builder.extend_from_array(listview.elements());
+        let new_elements_len = self.elements_builder.len();
 
         // Reserve enough space for the new views.
         let extend_length = listview.len();
@@ -287,36 +287,13 @@ impl<O: IntegerPType, S: IntegerPType> ArrayBuilder for ListViewBuilder<O, S> {
         // This should be cheap because we didn't compress after rebuilding.
         let new_offsets = listview.offsets().to_primitive();
 
-        fn adjust_offsets<'a, O: IntegerPType, A: IntegerPType>(
-            mut uninit_range: UninitRange<'a, O>,
-            new_offsets: PrimitiveArray,
-            curr_elements_len: usize,
-        ) {
-            let new_offsets_slice = new_offsets.as_slice::<A>();
-            let curr_elements_len = O::from_usize(curr_elements_len).vortex_expect(
-                "the current elements length did not fit into the offset type (impossible)",
-            );
-
-            for i in 0..uninit_range.len() {
-                let new_offset = new_offsets_slice[i];
-                let new_offset_correct_type = O::from_usize(
-                    new_offset
-                        .to_usize()
-                        .vortex_expect("Offsets must always fit in usize"),
-                )
-                .vortex_expect("New offset somehow did not fit into the builder's offset type");
-
-                let adjusted_new_offset = new_offset_correct_type + curr_elements_len;
-                uninit_range.set_value(i, adjusted_new_offset);
-            }
-
-            // SAFETY: We have set all the values in the range, and since `offsets` are
-            // non-nullable, we are done.
-            unsafe { uninit_range.finish() };
-        }
-
         match_each_integer_ptype!(new_offsets.ptype(), |A| {
-            adjust_offsets::<O, A>(uninit_range, new_offsets, curr_elements_len);
+            adjust_offsets::<O, A>(
+                uninit_range,
+                new_offsets,
+                old_elements_len,
+                new_elements_len,
+            );
         })
     }
 
@@ -339,6 +316,42 @@ impl<O: IntegerPType, S: IntegerPType> ArrayBuilder for ListViewBuilder<O, S> {
     fn finish_into_canonical(&mut self) -> Canonical {
         Canonical::List(self.finish_into_listview())
     }
+}
+
+/// Given new offsets, adds them to the `UninitRange` after adding the `old_elements_len` to each
+/// offset.
+fn adjust_offsets<'a, O: IntegerPType, A: IntegerPType>(
+    mut uninit_range: UninitRange<'a, O>,
+    new_offsets: PrimitiveArray,
+    old_elements_len: usize,
+    new_elements_len: usize,
+) {
+    let new_offsets_slice = new_offsets.as_slice::<A>();
+    let old_elements_len = O::from_usize(old_elements_len)
+        .vortex_expect("the old elements length did not fit into the offset type (impossible)");
+    let new_elements_len = O::from_usize(new_elements_len)
+        .vortex_expect("the current elements length did not fit into the offset type (impossible)");
+
+    for i in 0..uninit_range.len() {
+        let new_offset = O::from_usize(
+            new_offsets_slice[i]
+                .to_usize()
+                .vortex_expect("Offsets must always fit in usize"),
+        )
+        .vortex_expect("New offset somehow did not fit into the builder's offset type");
+
+        let adjusted_new_offset = new_offset + old_elements_len;
+        debug_assert!(
+            adjusted_new_offset <= new_elements_len,
+            "[{i}/{}]: {new_offset} + {old_elements_len} = {adjusted_new_offset} <= {new_elements_len} failed",
+            uninit_range.len()
+        );
+        uninit_range.set_value(i, adjusted_new_offset);
+    }
+
+    // SAFETY: We have set all the values in the range, and since `offsets` are
+    // non-nullable, we are done.
+    unsafe { uninit_range.finish() };
 }
 
 #[cfg(test)]
