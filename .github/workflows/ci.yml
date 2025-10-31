@@ -485,6 +485,25 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install valgrind
+        run: |
+          git clone https://github.com/CodSpeedHQ/valgrind-codspeed.git --branch cod-1573-v431-seems-to-cause-hangs
+          cd valgrind-codspeed
+          sudo apt-get install -y \
+              build-essential \
+              automake \
+              autoconf \
+              libc6-dev \
+              gdb \
+              docbook \
+              docbook-xsl \
+              docbook-xml \
+              xsltproc
+          ./autogen.sh
+          ./configure
+          make -j$(nproc)
+          sudo make install
+
       - name: Install Codspeed
         shell: bash
         run: cargo install --force cargo-codspeed --locked
