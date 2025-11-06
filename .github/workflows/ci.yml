@@ -487,7 +487,7 @@ jobs:
 
       - name: Install valgrind
         run: |
-          git clone https://github.com/CodSpeedHQ/valgrind-codspeed.git --branch cod-1573-v431-seems-to-cause-hangs
+          git clone https://github.com/CodSpeedHQ/valgrind-codspeed.git --branch bump-3.26.0
           cd valgrind-codspeed
           sudo apt-get install -y \
               build-essential \
